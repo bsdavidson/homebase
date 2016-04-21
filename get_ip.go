@@ -8,11 +8,14 @@ import (
 	"strings"
 )
 
-type HttpGetter interface {
+// HTTPGetter is an interface that implements http.Client's Get method so that
+// mock objects can be passed in for tests.
+type HTTPGetter interface {
 	Get(url string) (resp *http.Response, err error)
 }
 
-func GetPublicIP(c HttpGetter) (net.IP, error) {
+// GetPublicIP returns the public IP address for the current machine.
+func GetPublicIP(c HTTPGetter) (net.IP, error) {
 	resp, err := c.Get("http://checkip.amazonaws.com")
 	if err != nil {
 		return nil, fmt.Errorf("Error requesting IP: %v", err)

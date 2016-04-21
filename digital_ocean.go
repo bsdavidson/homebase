@@ -9,27 +9,34 @@ import (
 	"net/http"
 )
 
+// Record is a Digital Ocean domain record.
 type Record struct {
-	Id   int    `json:"id"`
+	ID   int    `json:"id"`
 	Type string `json:"type"`
 	Name string `json:"name"`
 	Data string `json:"data"`
 }
 
-type RecordsResponse struct {
+type recordsResponse struct {
 	Records []Record `json:"domain_records"`
 }
 
-type HttpDoer interface {
+// HTTPDoer is an interface that implements http.Client's Do method so that mock
+// objects can be passed in for tests.
+type HTTPDoer interface {
 	Do(req *http.Request) (resp *http.Response, err error)
 }
 
-var ErrorRecordNotFound = errors.New("Record not found")
+// ErrRecordNotFound is returned when a matching record cannot be found.
+var ErrRecordNotFound = errors.New("Record not found")
 
-func GetRecordByName(d HttpDoer, domainName, recordName, token string) (record *Record, err error) {
+// GetRecordByName returns a record of a subdomain for a given Digital Ocean
+// domain. If a record cannot be found with the passed name, ErrRecordNotFound
+// will be returned instead.
+func GetRecordByName(d HTTPDoer, domainName, recordName, token string) (record *Record, err error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records", domainName), nil)
 	if err != nil {
-		return record, fmt.Errorf("Error creating request : %v", err)
+		return record, fmt.Errorf("Error creating request: %v", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
@@ -40,14 +47,14 @@ func GetRecordByName(d HttpDoer, domainName, recordName, token string) (record *
 	defer resp.Body.Close()
 	jsonBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing body: %v", err)
+		return nil, fmt.Errorf("Error reading body: %v", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Bad response requesting records: %d : %s", resp.StatusCode, string(jsonBytes))
+		return nil, fmt.Errorf("Bad response requesting records: %d: %s", resp.StatusCode, string(jsonBytes))
 	}
 
-	recordsResponse := RecordsResponse{}
+	recordsResponse := recordsResponse{}
 	if err := json.Unmarshal(jsonBytes, &recordsResponse); err != nil {
 		return nil, fmt.Errorf("Error in json: %v", err)
 	}
@@ -58,18 +65,19 @@ func GetRecordByName(d HttpDoer, domainName, recordName, token string) (record *
 		}
 	}
 
-	return nil, ErrorRecordNotFound
+	return nil, ErrRecordNotFound
 }
 
-func (r *Record) Save(client HttpDoer, domainName, token string) error {
+// Save a record to Digital Ocean.
+func (r *Record) Save(client HTTPDoer, domainName, token string) error {
 	jsonBytes, err := json.Marshal(r)
 	if err != nil {
 		return fmt.Errorf("JSON error: %v", err)
 	}
-	url := fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records/%d", domainName, r.Id)
+	url := fmt.Sprintf("https://api.digitalocean.com/v2/domains/%s/records/%d", domainName, r.ID)
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return fmt.Errorf("Error creating request : %v", err)
+		return fmt.Errorf("Error creating request: %v", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
@@ -80,11 +88,11 @@ func (r *Record) Save(client HttpDoer, domainName, token string) error {
 	defer resp.Body.Close()
 	jsonBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("Error parsing body: %v", err)
+		return fmt.Errorf("Error reading body: %v", err)
 	}
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Bad response saving record: %d : %s", resp.StatusCode, string(jsonBytes))
+		return fmt.Errorf("Bad response saving record: %d: %s", resp.StatusCode, string(jsonBytes))
 	}
 	return nil
 }

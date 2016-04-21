@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/bsdavidson/homebase"
 	"log"
-	"net/http"
 )
 
 var domainName, recordName, token string
@@ -27,26 +26,12 @@ func main() {
 	if token == "" {
 		log.Fatal("-token argument is required")
 	}
-	client := &http.Client{}
 
-	ip, err := homebase.GetPublicIP(client)
+	record, err := homebase.GetAndUpdate(domainName, recordName, token)
 	if err != nil {
-		log.Fatal("Error getting IP:", err)
+		log.Fatal("Error Getting and Updating: ", err)
 	}
 
-	record, err := homebase.GetRecordByName(client, domainName, recordName, token)
-	if err != nil {
-		log.Fatal("Error getting record: ", err)
-	}
+	fmt.Println(record)
 
-	if record.Type != "A" {
-		log.Fatal("Record type must be A, was: ", record.Type)
-	}
-
-	record.Data = ip.String()
-	err = record.Save(client, domainName, token)
-	if err != nil {
-		log.Fatal("Error saving record: ", err)
-	}
-	fmt.Println(ip)
 }
